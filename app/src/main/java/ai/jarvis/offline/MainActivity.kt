@@ -188,6 +188,12 @@ class MainActivity : ComponentActivity() {
                                     if (prompt.isNotBlank() && !busy) {
                                         val question = prompt.trim()
                                         prompt = ""
+                                        val onlineQuery = OnlineIntentRouter.queryFor(question)
+                                        if (onlineQuery != null) {
+                                            val opened = OnlineIntentRouter.openGoogleSearch(this@MainActivity, onlineQuery)
+                                            answer = if (opened) "Opening Google Search for: $onlineQuery" else "No browser or search app is available to handle this request."
+                                            history = history + (question to answer)
+                                        } else {
                                         val localReply = LocalAgentRuntime.runLocalCommand(question, memory, this@MainActivity)
                                         if (localReply != null) {
                                             answer = localReply
@@ -212,6 +218,7 @@ class MainActivity : ComponentActivity() {
                                                 LocalAgentRuntime.trace(memory, question, result, elapsed)
                                                 busy = false
                                             }
+                                        }
                                         }
                                     }
                                 }
