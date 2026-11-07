@@ -108,6 +108,17 @@ Java_ai_jarvis_offline_NativeLlama_loadModel(JNIEnv * env, jobject, jstring path
     const std::string model_path(path_chars);
     env->ReleaseStringUTFChars(path, path_chars);
 
+    // Free the previous model before loading another one. Keeping two GGUF
+    // weights resident at once can exceed RAM on 4 GB Android phones.
+    if (ctx != nullptr) {
+        llama_free(ctx);
+        ctx = nullptr;
+    }
+    if (model != nullptr) {
+        llama_model_free(model);
+        model = nullptr;
+    }
+
     llama_model_params model_params = llama_model_default_params();
     model_params.n_gpu_layers = 0;
     llama_model * candidate_model = llama_model_load_from_file(model_path.c_str(), model_params);
@@ -122,10 +133,6 @@ Java_ai_jarvis_offline_NativeLlama_loadModel(JNIEnv * env, jobject, jstring path
         return JNI_FALSE;
     }
 
-    // Transactional replacement: keep the old model alive until the new
-    // model and its context are both ready.
-    if (ctx != nullptr) llama_free(ctx);
-    if (model != nullptr) llama_model_free(model);
     model = candidate_model;
     ctx = candidate_context;
     return JNI_TRUE;
