@@ -76,6 +76,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             var onboarded by remember { mutableStateOf(setupPrefs.getBoolean("onboarding_complete", false)) }
             var showPhoneControlInfo by remember { mutableStateOf(false) }
+            var pendingSensitiveAction by remember { mutableStateOf<String?>(null) }
             var modelPath by remember { mutableStateOf("") }
             var prompt by remember { mutableStateOf("") }
             var answer by remember { mutableStateOf("System ready. Import a compatible GGUF model to begin local inference.") }
@@ -196,10 +197,16 @@ class MainActivity : ComponentActivity() {
                                         } else {
                                         val localReply = LocalAgentRuntime.runLocalCommand(question, memory, this@MainActivity)
                                         if (localReply != null) {
-                                            answer = localReply
-                                            memoryText = memory.read()
-                                            history = history + (question to localReply)
-                                            LocalAgentRuntime.trace(memory, question, localReply, 0L)
+                                            if (localReply.startsWith("CONFIRM_TAP:")) {
+                                                pendingSensitiveAction = localReply.substringAfter("CONFIRM_TAP:")
+                                                answer = "Review the visible screen and confirm this sensitive action."
+                                                history = history + (question to answer)
+                                            } else {
+                                                answer = localReply
+                                                memoryText = memory.read()
+                                                history = history + (question to localReply)
+                                                LocalAgentRuntime.trace(memory, question, localReply, 0L)
+                                            }
                                         } else if (modelPath.isBlank()) {
                                             answer = "Import a GGUF model first. Local date, time and memory commands work without a model."
                                             history = history + (question to answer)
@@ -233,6 +240,24 @@ class MainActivity : ComponentActivity() {
                     }
                     BottomNav(tab = tab, onSelect = { tab = it })
                 }
+                }
+                if (pendingSensitiveAction != null) {
+                    AlertDialog(
+                        onDismissRequest = { pendingSensitiveAction = null },
+                        containerColor = Panel2,
+                        title = { Text("Confirm phone action", color = White) },
+                        text = { Text("JARVIS wants to tap: " + pendingSensitiveAction + ". Check the visible screen. Continue only if this is the action you intended.", color = Muted) },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                val label = pendingSensitiveAction ?: return@TextButton
+                                pendingSensitiveAction = null
+                                answer = JarvisPhoneAccessibilityService.active?.clickLabel(label) ?: "Phone control is not active."
+                            }) { Text("CONFIRM ACTION", color = Cyan) }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { pendingSensitiveAction = null; answer = "Action cancelled. Nothing was tapped." }) { Text("CANCEL", color = Muted) }
+                        }
+                    )
                 }
                 if (showPhoneControlInfo) {
                     AlertDialog(
