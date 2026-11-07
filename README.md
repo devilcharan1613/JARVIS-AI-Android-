@@ -36,3 +36,17 @@ No INTERNET permission is declared. Models and notes remain on-device. The model
 
 ## Test
 Run `gradle testDebugUnitTest`. Real-device tests are still required for inference, memory pressure, thermal behavior, language quality and airplane-mode operation.
+
+
+## OpenJarvis-inspired offline architecture (0.4.0)
+
+This Android app adopts selected architectural ideas from [OpenJarvis](https://github.com/open-jarvis/OpenJarvis) in native Kotlin. It does not bundle the upstream Python framework.
+
+- Native llama.cpp is the only inference engine.
+- `LocalAgentRuntime` coordinates prompts and a small allowlist of local tools.
+- Local date, time, remember and show-memory commands work without a model.
+- Encrypted app-private notes are matched locally and relevant notes are injected into prompts.
+- Bounded local diagnostic traces are encrypted on-device.
+- Strict offline policy: no INTERNET permission, cloud fallback, online model downloads or remote telemetry.
+
+See [OpenJarvis integration review](OPENJARVIS_INTEGRATION_REVIEW_0.4.0.md) for scope and outstanding device tests.
