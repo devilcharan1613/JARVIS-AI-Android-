@@ -53,8 +53,7 @@ object LocalAgentRuntime {
         if (normalized.startsWith("tap ")) {
             val label = text.substringAfter("tap ").trim()
             if (label.isBlank()) return "Say: tap followed by a visible button or label."
-            val risk = listOf("send", "pay", "buy", "purchase", "delete", "remove", "transfer", "call", "confirm", "submit", "install", "uninstall", "factory reset", "password", "pin", "otp")
-            if (risk.any { label.contains(it, true) }) return "Blocked for safety: '$label' may trigger a sensitive action. Please review and tap it yourself."
+            if (!PhoneActionPolicy.canAutomateTap(label)) return "Blocked for safety: '$label' may trigger a sensitive action. Please review and tap it yourself."
             return service?.clickLabel(label) ?: disabled
         }
         if (normalized.startsWith("type ")) {
