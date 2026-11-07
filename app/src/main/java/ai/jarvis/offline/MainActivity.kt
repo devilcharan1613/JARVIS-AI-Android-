@@ -1,6 +1,20 @@
 package ai.jarvis.offline
 
 import android.net.Uri
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.graphics.Brush
+import android.content.Intent
+import android.provider.Settings
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -48,8 +62,13 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.statusBarColor = android.graphics.Color.rgb(7, 18, 29)
+        window.navigationBarColor = android.graphics.Color.rgb(7, 18, 29)
         memory = LocalMemory(this)
+        val setupPrefs = getSharedPreferences("jarvis_setup", MODE_PRIVATE)
         setContent {
+            var onboarded by remember { mutableStateOf(setupPrefs.getBoolean("onboarding_complete", false)) }
+            var showPhoneControlInfo by remember { mutableStateOf(false) }
             var modelPath by remember { mutableStateOf("") }
             var prompt by remember { mutableStateOf("") }
             var answer by remember { mutableStateOf("System ready. Import a compatible GGUF model to begin local inference.") }
@@ -93,6 +112,12 @@ class MainActivity : ComponentActivity() {
                     onBackground = White, outline = Color(0xFF29475A)
                 )
             ) {
+                if (!onboarded) {
+                    OnboardingScreen(onFinish = {
+                        setupPrefs.edit().putBoolean("onboarding_complete", true).apply()
+                        onboarded = true
+                    })
+                } else {
                 Column(Modifier.fillMaxSize().background(Ink)) {
                     TopBar()
                     Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -141,10 +166,26 @@ class MainActivity : ComponentActivity() {
                                 onSave = { memory.write(memoryText); answer = "Private memory saved on this device." },
                                 onClear = { memory.clear(); memoryText = ""; answer = "Private memory cleared." }
                             )
-                            else -> SettingsScreen(modelPath.isNotBlank(), onImport = { picker.launch(arrayOf("application/octet-stream", "application/*")) }, onPhoneControl = { startActivity(android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)) })
+                            else -> SettingsScreen(modelPath.isNotBlank(), onImport = { picker.launch(arrayOf("application/octet-stream", "application/*")) }, onPhoneControl = { showPhoneControlInfo = true })
                         }
                     }
                     BottomNav(tab = tab, onSelect = { tab = it })
+                }
+                }
+                if (showPhoneControlInfo) {
+                    AlertDialog(
+                        onDismissRequest = { showPhoneControlInfo = false },
+                        containerColor = Panel2,
+                        title = { Text("Enable phone control?", color = White) },
+                        text = { Text("Accessibility access lets JARVIS read visible screen labels and perform supported actions after you enable it. Screen content can be sensitive. JARVIS cannot enable this permission itself. You can cancel or switch it off later in Android Settings.", color = Muted) },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                showPhoneControlInfo = false
+                                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                            }) { Text("OPEN ANDROID SETTINGS", color = Cyan) }
+                        },
+                        dismissButton = { TextButton(onClick = { showPhoneControlInfo = false }) { Text("NOT NOW", color = Muted) } }
+                    )
                 }
             }
         }
@@ -156,15 +197,86 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+
+@Composable
+private fun OnboardingScreen(onFinish: () -> Unit) {
+    var page by remember { mutableIntStateOf(0) }
+    val headings = listOf("Your AI. Your device.", "Private by design.", "You stay in control.")
+    val body = listOf(
+        "Run a personal language model directly on your Android phone. Import a compatible GGUF model to begin offline conversations.",
+        "Your model and encrypted notes stay in app storage. JARVIS has no internet permission, cloud sync or remote AI service.",
+        "Choose features when you need them. Phone control is optional and must be enabled manually in Android Accessibility settings."
+    )
+    val labels = listOf("ON-DEVICE INTELLIGENCE", "LOCAL-ONLY PRIVACY", "PERMISSIONS & SAFETY")
+    Column(
+        Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Panel2, Ink, Ink))).padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Spacer(Modifier.height(18.dp))
+        TopBar()
+        Spacer(Modifier.weight(1f))
+        AnimatedContent(
+            targetState = page,
+            transitionSpec = { (fadeIn(tween(260)) + scaleIn(initialScale = .96f, animationSpec = tween(260))) togetherWith fadeOut(tween(160)) },
+            label = "onboarding"
+        ) { current ->
+            Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                OnboardingReactor()
+                Spacer(Modifier.height(30.dp))
+                Text(labels[current], color = Cyan, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
+                Spacer(Modifier.height(12.dp))
+                Text(headings[current], color = White, fontSize = 29.sp, lineHeight = 35.sp, fontWeight = FontWeight.Light)
+                Spacer(Modifier.height(14.dp))
+                Text(body[current], color = Muted, fontSize = 14.sp, lineHeight = 22.sp)
+            }
+        }
+        Spacer(Modifier.weight(1f))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            repeat(3) { i ->
+                Box(Modifier.width(if (i == page) 25.dp else 7.dp).height(7.dp).clip(CircleShape).background(if (i == page) Cyan else BorderColor))
+            }
+        }
+        Spacer(Modifier.height(22.dp))
+        Button(
+            onClick = { if (page < 2) page++ else onFinish() },
+            modifier = Modifier.fillMaxWidth().height(54.dp),
+            shape = RoundedCornerShape(15.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = Cyan, contentColor = Ink)
+        ) { Text(if (page == 2) "ENTER J.A.R.V.I.S." else "CONTINUE", fontWeight = FontWeight.Bold, letterSpacing = 1.sp) }
+        TextButton(onClick = onFinish) { Text("SKIP INTRODUCTION", color = Muted) }
+    }
+}
+
+private val BorderColor = Color(0xFF29475A)
+
+@Composable
+private fun OnboardingReactor() {
+    val transition = rememberInfiniteTransition(label = "intro_pulse")
+    val pulse by transition.animateFloat(
+        initialValue = .72f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1500, easing = FastOutSlowInEasing), RepeatMode.Reverse),
+        label = "pulse"
+    )
+    Canvas(Modifier.size(190.dp)) {
+        val center = Offset(size.width / 2, size.height / 2)
+        val radius = size.minDimension / 2
+        drawCircle(Cyan.copy(alpha = .12f), radius * .94f, center, style = Stroke(2.dp.toPx()))
+        drawCircle(Cyan.copy(alpha = .38f), radius * .72f, center, style = Stroke(2.dp.toPx()))
+        drawCircle(Cyan.copy(alpha = .2f), radius * .48f, center, style = Stroke(8.dp.toPx()))
+        drawCircle(Cyan.copy(alpha = pulse), radius * .28f, center, style = Stroke(2.dp.toPx()))
+        drawCircle(White.copy(alpha = .8f), radius * .1f, center)
+    }
+}
+
 @Composable
 private fun TopBar() {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(38.dp).clip(CircleShape).background(Panel2).border(1.dp, Cyan.copy(alpha = .65f), CircleShape), contentAlignment = Alignment.Center) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(42.dp).clip(CircleShape).background(Panel2).border(1.dp, Cyan.copy(alpha = .65f), CircleShape), contentAlignment = Alignment.Center) {
             Text("J", color = Cyan, fontSize = 22.sp, fontWeight = FontWeight.Light)
         }
         Spacer(Modifier.width(11.dp))
         Column(Modifier.weight(1f)) {
-            Text("J.A.R.V.I.S.", color = White, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 2.sp)
+            Text("J.A.R.V.I.S.", color = White, fontSize = 19.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 2.sp)
             Text("PERSONAL LOCAL INTELLIGENCE", color = Muted, fontSize = 9.sp, letterSpacing = 1.5.sp)
         }
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -180,9 +292,9 @@ private fun TopBar() {
 private fun HomeScreen(modelName: String, busy: Boolean, answer: String, onImport: () -> Unit, onOpenChat: () -> Unit, onOpenMemory: () -> Unit) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Spacer(Modifier.height(4.dp))
-        Text("GOOD DAY, COMMANDER", color = Muted, fontSize = 11.sp, letterSpacing = 2.sp)
+        Text("PERSONAL AI SYSTEM  /  READY", color = Muted, fontSize = 10.sp, letterSpacing = 2.sp)
         Text("Your world.\nYour intelligence.", color = White, fontSize = 29.sp, lineHeight = 34.sp, fontWeight = FontWeight.Light)
-        Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(Panel).border(1.dp, Cyan.copy(alpha = .28f), RoundedCornerShape(22.dp)).padding(18.dp)) {
+        Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(26.dp)).background(Brush.verticalGradient(listOf(Panel2, Panel))).border(1.dp, Cyan.copy(alpha = .28f), RoundedCornerShape(26.dp)).padding(20.dp)) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                 ArcReactor()
                 Spacer(Modifier.height(10.dp))
@@ -196,7 +308,7 @@ private fun HomeScreen(modelName: String, busy: Boolean, answer: String, onImpor
                 }
             }
         }
-        Text("SYSTEM MODULES", color = Muted, fontSize = 11.sp, letterSpacing = 1.8.sp)
+        Text("SYSTEM OVERVIEW", color = White, fontSize = 13.sp, letterSpacing = 1.sp, fontWeight = FontWeight.SemiBold)
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             StatusTile("01", "AI CORE", "llama.cpp", true, Modifier.weight(1f))
             StatusTile("02", "MEMORY", "Encrypted notes", true, Modifier.weight(1f))
@@ -205,7 +317,7 @@ private fun HomeScreen(modelName: String, busy: Boolean, answer: String, onImpor
             StatusTile("03", "VOICE", "Not configured", false, Modifier.weight(1f))
             StatusTile("04", "WAKE WORD", "Not configured", false, Modifier.weight(1f))
         }
-        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Panel).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Panel).border(1.dp, Color(0xFF203D50), RoundedCornerShape(20.dp)).padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("MODEL STATUS", color = Cyan, fontSize = 10.sp, letterSpacing = 1.5.sp, fontWeight = FontWeight.Bold)
             Text(modelName, color = White, fontSize = 13.sp, fontWeight = FontWeight.Medium)
             Text("No model is bundled. Import your own compatible GGUF file. Smaller quantized models are recommended for phones with 4 GB RAM.", color = Muted, fontSize = 11.sp, lineHeight = 16.sp)
@@ -214,11 +326,11 @@ private fun HomeScreen(modelName: String, busy: Boolean, answer: String, onImpor
             }
         }
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Panel2).clickable { onOpenChat() }.padding(16.dp)) {
-            Text("TALK TO JARVIS  ›", color = Cyan, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+            Text("OPEN AI CONSOLE  ↗", color = Cyan, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
             Text("Open your private, on-device AI console", color = Muted, fontSize = 12.sp)
         }
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Panel2).clickable { onOpenMemory() }.padding(16.dp)) {
-            Text("PRIVATE MEMORY  ›", color = Cyan, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+            Text("PRIVATE KNOWLEDGE VAULT  ↗", color = Cyan, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
             Text("Your saved notes stay on this phone", color = Muted, fontSize = 12.sp)
         }
         Text("LAST SYSTEM MESSAGE", color = Muted, fontSize = 10.sp, letterSpacing = 1.5.sp)
@@ -230,7 +342,7 @@ private fun HomeScreen(modelName: String, busy: Boolean, answer: String, onImpor
 
 @Composable
 private fun ArcReactor() {
-    Canvas(Modifier.size(164.dp)) {
+    Canvas(Modifier.size(174.dp)) {
         val c = Offset(size.width / 2, size.height / 2)
         val r = size.minDimension / 2
         drawCircle(Cyan.copy(alpha = .12f), r * .92f, c, style = Stroke(2.dp.toPx()))
@@ -240,7 +352,7 @@ private fun ArcReactor() {
         drawCircle(Cyan.copy(alpha = .12f), r * .31f, c)
         drawCircle(White.copy(alpha = .8f), r * .12f, c)
         for (i in 0 until 8) {
-            val a = Math.toRadians(i * 45.0)
+            val a = Math.toRadians(i * 45.0 + rotation)
             val start = Offset(c.x + kotlin.math.cos(a).toFloat() * r * .8f, c.y + kotlin.math.sin(a).toFloat() * r * .8f)
             val end = Offset(c.x + kotlin.math.cos(a).toFloat() * r * .94f, c.y + kotlin.math.sin(a).toFloat() * r * .94f)
             drawLine(Cyan, start, end, 2.dp.toPx())
@@ -349,7 +461,7 @@ private fun BottomNav(tab: String, onSelect: (String) -> Unit) {
     Row(Modifier.fillMaxWidth().background(Panel).padding(horizontal = 8.dp, vertical = 10.dp), horizontalArrangement = Arrangement.SpaceAround) {
         entries.forEach { (name, glyph) ->
             val selected = tab == name
-            Column(Modifier.clip(RoundedCornerShape(12.dp)).clickable { onSelect(name) }.padding(horizontal = 13.dp, vertical = 5.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(Modifier.clip(RoundedCornerShape(13.dp)).background(if (selected) Cyan.copy(alpha = .08f) else Color.Transparent).clickable { onSelect(name) }.padding(horizontal = 13.dp, vertical = 5.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(glyph, color = if (selected) Cyan else Muted, fontSize = 20.sp)
                 Text(name, color = if (selected) Cyan else Muted, fontSize = 8.sp, letterSpacing = .8.sp, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
             }
