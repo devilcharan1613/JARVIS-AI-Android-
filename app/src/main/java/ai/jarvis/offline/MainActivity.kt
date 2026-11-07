@@ -488,6 +488,23 @@ private fun ArcReactor() {
 }
 
 @Composable
+private fun QuickAction(icon: String, title: String, detail: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Column(
+        modifier.clip(RoundedCornerShape(17.dp))
+            .background(Brush.verticalGradient(listOf(Color(0xFF102D42), Panel)))
+            .border(1.dp, Color(0xFF244A61), RoundedCornerShape(17.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 15.dp, horizontal = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(icon, color = Cyan, fontSize = 22.sp)
+        Spacer(Modifier.height(7.dp))
+        Text(title, color = White, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
+        Text(detail, color = Muted, fontSize = 8.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+    }
+}
+
+@Composable
 private fun Metric(label: String, value: String, tint: Color) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(value, color = tint, fontSize = 9.sp, fontWeight = FontWeight.Bold)
