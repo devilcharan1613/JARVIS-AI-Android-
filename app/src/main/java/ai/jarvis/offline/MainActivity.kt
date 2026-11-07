@@ -111,10 +111,9 @@ class MainActivity : ComponentActivity() {
                                         }
                                     }
                                     require(total >= 4L) { "The selected file is empty or too small to be a GGUF model." }
-                                    val magic = ByteArray(4)
-                                    out.inputStream().use { input -> require(input.read(magic) == 4 && String(magic, Charsets.US_ASCII) == "GGUF") {
+                                    require(GgufFileValidator.hasValidHeader(out)) {
                                         "This file does not have a valid GGUF header. Choose a .gguf model."
-                                    } }
+                                    }
                                     out.absolutePath
                                 }
                                 val loaded = withContext(Dispatchers.IO) { NativeLlama.loadModel(copied, 1024) }
