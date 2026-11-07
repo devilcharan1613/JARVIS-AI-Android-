@@ -184,7 +184,7 @@ Java_ai_jarvis_offline_NativeLlama_generate(JNIEnv * env, jobject, jstring input
 
     std::string output;
     for (int i = 0; i < safe_max_tokens; ++i) {
-        const llama_token token = llama_sampler_sample(sampler, ctx, -1);
+        llama_token token = llama_sampler_sample(sampler, ctx, -1);
         if (llama_vocab_is_eog(vocab, token)) break;
         char piece[512];
         const int length = llama_token_to_piece(vocab, token, piece, sizeof(piece), 0, true);
