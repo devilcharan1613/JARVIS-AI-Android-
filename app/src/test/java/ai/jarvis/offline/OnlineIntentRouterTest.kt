@@ -21,4 +21,8 @@ class OnlineIntentRouterTest {
         assertNull(OnlineIntentRouter.queryFor("Open YouTube"))
         assertNull(OnlineIntentRouter.queryFor("What time is it"))
     }
+    @Test fun localTimeQueriesStayOfflineInAutoMode() {
+        assertNull(OnlineIntentRouter.queryFor("What is the current time?"))
+        assertNull(OnlineIntentRouter.queryFor("What's today's date"))
+    }
 }
