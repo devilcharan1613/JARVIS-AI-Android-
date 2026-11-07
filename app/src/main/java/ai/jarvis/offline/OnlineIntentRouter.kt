@@ -20,7 +20,7 @@ object OnlineIntentRouter {
         val text = input.trim()
         if (text.isBlank() || onlinePatterns.none { it.containsMatchIn(text) }) return null
         return text
-            .replace(Regex("^(please\\s+)?(search( google)? for|google|look up|find online)\\s*", RegexOption.IGNORE_CASE), "")
+            .replace(Regex("^(please\\s+)?(google\\s+search\\s+for|search(\\s+google)?\\s+for|google|look up|find online)\\s*", RegexOption.IGNORE_CASE), "")
             .trim()
             .ifBlank { text }
     }
