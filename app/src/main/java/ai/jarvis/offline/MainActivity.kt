@@ -407,6 +407,15 @@ private fun ArcReactor() {
         ),
         label = "rotation"
     )
+    val pulse by transition.animateFloat(
+        initialValue = .88f,
+        targetValue = 1.12f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1250, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "core_pulse"
+    )
     Canvas(Modifier.size(174.dp)) {
         val c = Offset(size.width / 2, size.height / 2)
         val r = size.minDimension / 2
@@ -414,15 +423,6 @@ private fun ArcReactor() {
         drawCircle(Cyan.copy(alpha = .5f), r * .76f, c, style = Stroke(1.dp.toPx()))
         drawCircle(Cyan.copy(alpha = .2f), r * .59f, c, style = Stroke(8.dp.toPx()))
         drawCircle(Cyan, r * .44f, c, style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
-        val pulse by transition.animateFloat(
-            initialValue = .88f,
-            targetValue = 1.12f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(durationMillis = 1250, easing = FastOutSlowInEasing),
-                repeatMode = RepeatMode.Reverse
-            ),
-            label = "core_pulse"
-        )
         drawCircle(Cyan.copy(alpha = .10f), r * .34f * pulse, c)
         drawCircle(Cyan.copy(alpha = .22f), r * .25f * pulse, c, style = Stroke(2.dp.toPx()))
         drawCircle(White.copy(alpha = .92f), r * .12f * pulse, c)
