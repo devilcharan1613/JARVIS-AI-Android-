@@ -77,13 +77,30 @@ class MainActivity : ComponentActivity() {
             var onboarded by remember { mutableStateOf(setupPrefs.getBoolean("onboarding_complete", false)) }
             var showPhoneControlInfo by remember { mutableStateOf(false) }
             var pendingSensitiveAction by remember { mutableStateOf<String?>(null) }
+            val savedModelPath = setupPrefs.getString("active_model_path", "").orEmpty()
             var modelPath by remember { mutableStateOf("") }
             var prompt by remember { mutableStateOf("") }
             var answer by remember { mutableStateOf("System ready. Import a compatible GGUF model to begin local inference.") }
-            var busy by remember { mutableStateOf(false) }
+            var busy by remember { mutableStateOf(savedModelPath.isNotBlank()) }
             var memoryText by remember { mutableStateOf(memory.read()) }
             var tab by remember { mutableStateOf("HOME") }
             var history by remember { mutableStateOf(listOf<Pair<String, String>>()) }
+            LaunchedEffect(Unit) {
+                if (savedModelPath.isNotBlank() && File(savedModelPath).isFile) {
+                    val restored = runCatching { withContext(Dispatchers.IO) { NativeLlama.loadModel(savedModelPath, 1024) } }.getOrDefault(false)
+                    if (restored) {
+                        modelPath = savedModelPath
+                        answer = "Saved GGUF model restored. Local inference is ready."
+                    } else {
+                        setupPrefs.edit().remove("active_model_path").apply()
+                        answer = "The saved model could not be restored. Import a compatible GGUF model again."
+                    }
+                } else if (savedModelPath.isNotBlank()) {
+                    setupPrefs.edit().remove("active_model_path").apply()
+                    answer = "The previous model file is missing. Import a GGUF model again."
+                }
+                busy = false
+            }
             val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
                 uri?.let { selectedUri ->
                     if (!busy) {
@@ -124,15 +141,11 @@ class MainActivity : ComponentActivity() {
                                     out.absolutePath
                                 }
                                 val loaded = withContext(Dispatchers.IO) { NativeLlama.loadModel(copied, 1024) }
-                                if (!loaded) {
-                                    if (previousPath.isNotBlank() && File(previousPath).exists()) {
-                                        withContext(Dispatchers.IO) { NativeLlama.loadModel(previousPath, 1024) }
-                                    }
-                                    error("Model load failed. The previous model was restored when possible. Check model compatibility and available RAM.")
-                                }
+                                if (!loaded) error("Model load failed. The previous model remains active. Check model compatibility and available RAM.")
                                 copied
                             }
                             result.onSuccess { path ->
+                                setupPrefs.edit().putString("active_model_path", path).apply()
                                 modelPath = path
                                 if (previousPath.isNotBlank() && previousPath != path) {
                                     runCatching { File(previousPath).delete() }
