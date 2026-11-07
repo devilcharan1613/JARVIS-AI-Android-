@@ -23,7 +23,12 @@ class JarvisPhoneAccessibilityService : AccessibilityService() {
         }
     }
 
-    override fun onServiceConnected() { super.onServiceConnected(); active = this }
+    override fun onServiceConnected() {
+        super.onServiceConnected()
+        emergencyStopped = getSharedPreferences("jarvis_setup", MODE_PRIVATE)
+            .getBoolean("phone_emergency_stop", false)
+        active = this
+    }
     override fun onAccessibilityEvent(event: AccessibilityEvent?) { /* Screen is read on demand only. */ }
     override fun onInterrupt() {}
     override fun onDestroy() { if (active === this) active = null; super.onDestroy() }
