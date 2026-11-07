@@ -35,12 +35,16 @@ object LocalAgentRuntime {
             return "Android Accessibility settings opened. Find JARVIS Phone Control and enable it yourself."
         }
         if (normalized == "stop phone control" || normalized == "emergency stop") {
+            context.getSharedPreferences("jarvis_setup", Context.MODE_PRIVATE)
+                .edit().putBoolean("phone_emergency_stop", true).apply()
             JarvisPhoneAccessibilityService.emergencyStopped = true
-            return "Emergency STOP engaged. Accessibility actions are disabled."
+            return "Emergency STOP engaged and saved. Accessibility actions are disabled."
         }
         if (normalized == "resume phone control") {
+            context.getSharedPreferences("jarvis_setup", Context.MODE_PRIVATE)
+                .edit().putBoolean("phone_emergency_stop", false).apply()
             JarvisPhoneAccessibilityService.emergencyStopped = false
-            return "Phone control resumed. Sensitive actions remain blocked for manual completion."
+            return "Phone control resumed. Sensitive actions still require confirmation."
         }
         val service = JarvisPhoneAccessibilityService.active
         val disabled = "Phone control is disabled. Enable JARVIS Phone Control in Android Accessibility settings."
