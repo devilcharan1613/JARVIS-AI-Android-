@@ -34,6 +34,14 @@ object LocalAgentRuntime {
             context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             return "Android Accessibility settings opened. Find JARVIS Phone Control and enable it yourself."
         }
+        if (normalized == "stop phone control" || normalized == "emergency stop") {
+            JarvisPhoneAccessibilityService.emergencyStopped = true
+            return "Emergency STOP engaged. Accessibility actions are disabled."
+        }
+        if (normalized == "resume phone control") {
+            JarvisPhoneAccessibilityService.emergencyStopped = false
+            return "Phone control resumed. Sensitive actions remain blocked for manual completion."
+        }
         val service = JarvisPhoneAccessibilityService.active
         val disabled = "Phone control is disabled. Enable JARVIS Phone Control in Android Accessibility settings."
         if (normalized in setOf("go home", "press home", "home screen", "go to home screen"))
