@@ -18,7 +18,15 @@ object OnlineIntentRouter {
 
     fun queryFor(input: String): String? {
         val text = input.trim()
-        if (text.isBlank() || onlinePatterns.none { it.containsMatchIn(text) }) return null
+        if (text.isBlank()) return null
+        val normalized = text.lowercase().replace(Regex("[?.!]+$"), "").trim()
+        val localTimeOrDate = setOf(
+            "time", "what time is it", "current time", "what is the current time",
+            "what's the current time", "tell me the time", "date", "today's date",
+            "what is the date", "what is today's date", "what's today's date"
+        )
+        if (normalized in localTimeOrDate) return null
+        if (onlinePatterns.none { it.containsMatchIn(text) }) return null
         return text
             .replace(Regex("^(please\\s+)?(google\\s+search\\s+for|search(\\s+google)?\\s+for|google|look up|find online)\\s*", RegexOption.IGNORE_CASE), "")
             .trim()
