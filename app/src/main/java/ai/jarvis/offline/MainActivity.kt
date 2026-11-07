@@ -398,56 +398,55 @@ private fun TopBar() {
 
 @Composable
 private fun HomeScreen(modelName: String, busy: Boolean, answer: String, onImport: () -> Unit, onOpenChat: () -> Unit, onOpenMemory: () -> Unit) {
-    Column(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF0A1B29), Ink, Ink))).verticalScroll(rememberScrollState()).padding(horizontal = 18.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Spacer(Modifier.height(4.dp))
-        Text("PERSONAL AI SYSTEM  /  READY", color = Muted, fontSize = 10.sp, letterSpacing = 2.sp)
-        Text("Your world.\nYour intelligence.", color = White, fontSize = 29.sp, lineHeight = 34.sp, fontWeight = FontWeight.Light)
-        Box(Modifier.fillMaxWidth().animateContentSize(tween(350, easing = FastOutSlowInEasing)).clip(RoundedCornerShape(26.dp)).background(Brush.verticalGradient(listOf(Color(0xFF15364B), Panel, Color(0xFF0A1A28)))).border(1.dp, Cyan.copy(alpha = .34f), RoundedCornerShape(26.dp)).padding(20.dp)) {
+    Column(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF061827), Ink, Color(0xFF020A12)))).verticalScroll(rememberScrollState()).padding(horizontal = 18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Spacer(Modifier.height(3.dp))
+        Text("YOUR PERSONAL ASSISTANT", color = Cyan, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.8.sp)
+        Text("Hello, Commander.", color = White, fontSize = 27.sp, fontWeight = FontWeight.SemiBold)
+        Text("What would you like to do today?", color = Muted, fontSize = 13.sp)
+        Box(Modifier.fillMaxWidth().animateContentSize(tween(300)).clip(RoundedCornerShape(26.dp)).background(Brush.verticalGradient(listOf(Color(0xFF12344B), Color(0xFF0A2031), Color(0xFF071522)))).border(1.dp, Cyan.copy(alpha = .28f), RoundedCornerShape(26.dp)).padding(18.dp)) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                 ArcReactor()
-                Spacer(Modifier.height(10.dp))
-                Text(if (busy) "PROCESSING REQUEST" else "SYSTEM STANDBY", color = Cyan, fontSize = 11.sp, letterSpacing = 2.sp, fontWeight = FontWeight.Bold)
-                Text("LOCAL AI CORE", color = Muted, fontSize = 9.sp, letterSpacing = 2.sp)
-                Spacer(Modifier.height(15.dp))
+                Spacer(Modifier.height(8.dp))
+                Text(if (busy) "PROCESSING LOCALLY" else "J.A.R.V.I.S. IS READY", color = Cyan, fontSize = 11.sp, letterSpacing = 1.8.sp, fontWeight = FontWeight.Bold)
+                Text("ON-DEVICE AI CORE", color = Muted, fontSize = 9.sp, letterSpacing = 1.5.sp)
+                Spacer(Modifier.height(16.dp))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                    Metric("NETWORK", "DISABLED", Green)
-                    Metric("INFERENCE", "ON DEVICE", Cyan)
-                    Metric("PRIVACY", "LOCAL", Green)
+                    Metric("AI CHAT", "OFFLINE", Green)
+                    Metric("WEB SEARCH", "ON REQUEST", Cyan)
+                    Metric("MEMORY", "LOCAL", Green)
+                }
+                Spacer(Modifier.height(16.dp))
+                Button(onClick = onOpenChat, modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(25.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0B6C91), contentColor = White)) {
+                    Text("Start a conversation  →", fontWeight = FontWeight.SemiBold)
                 }
             }
         }
-        Text("SYSTEM OVERVIEW", color = White, fontSize = 13.sp, letterSpacing = 1.sp, fontWeight = FontWeight.SemiBold)
+        Text("QUICK ACCESS", color = White, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            StatusTile("01", "AI CORE", "llama.cpp", true, Modifier.weight(1f))
-            StatusTile("02", "MEMORY", "Encrypted notes", true, Modifier.weight(1f))
+            QuickAction("▣", "AI Chat", "Ask privately", onOpenChat, Modifier.weight(1f))
+            QuickAction("▤", "Memory", "Saved notes", onOpenMemory, Modifier.weight(1f))
+            QuickAction("⬡", "Model", "Import GGUF", onImport, Modifier.weight(1f))
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            StatusTile("03", "VOICE", "Not configured", false, Modifier.weight(1f))
-            StatusTile("04", "WAKE WORD", "Not configured", false, Modifier.weight(1f))
-        }
-        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Panel).border(1.dp, Color(0xFF203D50), RoundedCornerShape(20.dp)).padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("MODEL STATUS", color = Cyan, fontSize = 10.sp, letterSpacing = 1.5.sp, fontWeight = FontWeight.Bold)
-            Text(modelName, color = White, fontSize = 13.sp, fontWeight = FontWeight.Medium)
-            Text("No model is bundled. Import your own compatible GGUF file. Smaller quantized models are recommended for phones with 4 GB RAM.", color = Muted, fontSize = 11.sp, lineHeight = 16.sp)
-            Button(onClick = onImport, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = Cyan, contentColor = Ink)) {
-                Text("＋  IMPORT GGUF MODEL", fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(19.dp)).background(Panel).border(1.dp, BorderColor, RoundedCornerShape(19.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("LOCAL MODEL", color = Cyan, fontSize = 10.sp, letterSpacing = 1.5.sp, fontWeight = FontWeight.Bold)
+                Spacer(Modifier.weight(1f))
+                Text(if (modelName == "NO MODEL LOADED") "NOT READY" else "LOADED", color = if (modelName == "NO MODEL LOADED") Color(0xFFFFC46B) else Green, fontSize = 9.sp, fontWeight = FontWeight.Bold)
             }
+            Text(modelName, color = White, fontSize = 13.sp, fontWeight = FontWeight.Medium)
+            Text("Your GGUF model stays in app-private storage. On a 4 GB phone, start with a small Q4 model and close memory-heavy apps before loading it.", color = Muted, fontSize = 11.sp, lineHeight = 16.sp)
+            OutlinedButton(onClick = onImport, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp)) { Text("IMPORT OR REPLACE MODEL", color = Cyan) }
         }
-        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Panel2).clickable { onOpenChat() }.padding(16.dp)) {
-            Text("OPEN AI CONSOLE  ↗", color = Cyan, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-            Text("Open your private, on-device AI console", color = Muted, fontSize = 12.sp)
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(19.dp)).background(Panel2).border(1.dp, Color(0xFF244A61), RoundedCornerShape(19.dp)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+            Text("ONLINE WHEN NEEDED", color = Cyan, fontSize = 10.sp, letterSpacing = 1.4.sp, fontWeight = FontWeight.Bold)
+            Text("Local chat stays on this phone. Requests for current information can open Google Search in your browser.", color = White, fontSize = 12.sp, lineHeight = 18.sp)
+            Text("The browser handles its own connection. JARVIS does not upload your private memory or local chat history.", color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
         }
-        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Panel2).clickable { onOpenMemory() }.padding(16.dp)) {
-            Text("PRIVATE KNOWLEDGE VAULT  ↗", color = Cyan, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-            Text("Your saved notes stay on this phone", color = Muted, fontSize = 12.sp)
-        }
-        Text("LAST SYSTEM MESSAGE", color = Muted, fontSize = 10.sp, letterSpacing = 1.5.sp)
+        Text("LATEST RESPONSE", color = Muted, fontSize = 9.sp, letterSpacing = 1.5.sp)
         Text(answer, color = White, fontSize = 12.sp, lineHeight = 18.sp)
-        Text("Offline means no network access. Live web search, cloud sync and remote services are intentionally unavailable.", color = Muted, fontSize = 10.sp, lineHeight = 15.sp)
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(12.dp))
     }
 }
-
 @Composable
 private fun ArcReactor() {
     val transition = rememberInfiniteTransition(label = "reactor_rotation")
