@@ -15,6 +15,7 @@ import java.util.Locale
 class JarvisPhoneAccessibilityService : AccessibilityService() {
     companion object {
         @Volatile var active: JarvisPhoneAccessibilityService? = null
+        @Volatile var emergencyStopped: Boolean = false
         fun isEnabled(context: android.content.Context): Boolean {
             val expected = context.packageName + "/" + JarvisPhoneAccessibilityService::class.java.name
             val enabled = Settings.Secure.getString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES) ?: return false
@@ -28,6 +29,7 @@ class JarvisPhoneAccessibilityService : AccessibilityService() {
     override fun onDestroy() { if (active === this) active = null; super.onDestroy() }
 
     fun observeScreen(): String {
+        if (emergencyStopped) return "Emergency STOP is active. Resume phone control explicitly."
         val root = rootInActiveWindow ?: return "No accessible app window is currently available."
         val lines = mutableListOf<String>()
         fun walk(node: AccessibilityNodeInfo?, depth: Int) {
@@ -41,6 +43,7 @@ class JarvisPhoneAccessibilityService : AccessibilityService() {
     }
 
     fun clickLabel(query: String): String {
+        if (emergencyStopped) return "Emergency STOP is active. Resume phone control explicitly."
         val root = rootInActiveWindow ?: return "No active app window. Open the target app first."
         val target = findNode(root, query) ?: return "I couldn't find a visible control matching '$query'."
         if (target.isPassword) return "Blocked: password fields cannot be activated by this command."
@@ -53,6 +56,7 @@ class JarvisPhoneAccessibilityService : AccessibilityService() {
     }
 
     fun typeIntoFocusedField(value: String): String {
+        if (emergencyStopped) return "Emergency STOP is active. Resume phone control explicitly."
         val root = rootInActiveWindow ?: return "No active app window."
         val target = findFocusedEditable(root) ?: return "No focused text field found. Tap a text field first."
         if (target.isPassword) return "Blocked: JARVIS will not type into password or PIN fields."
@@ -61,6 +65,7 @@ class JarvisPhoneAccessibilityService : AccessibilityService() {
     }
 
     fun scroll(direction: String): String {
+        if (emergencyStopped) return "Emergency STOP is active. Resume phone control explicitly."
         val root = rootInActiveWindow ?: return "No active app window."
         val node = findScrollable(root) ?: return "No scrollable area found."
         val action = if (direction.equals("up", true)) AccessibilityNodeInfo.ACTION_SCROLL_BACKWARD else AccessibilityNodeInfo.ACTION_SCROLL_FORWARD
@@ -68,6 +73,7 @@ class JarvisPhoneAccessibilityService : AccessibilityService() {
     }
 
     fun navigate(home: Boolean): String {
+        if (emergencyStopped) return "Emergency STOP is active. Resume phone control explicitly."
         val action = if (home) GLOBAL_ACTION_HOME else GLOBAL_ACTION_BACK
         return if (performGlobalAction(action)) if (home) "Home navigation requested." else "Back navigation requested." else "Android refused navigation."
     }
