@@ -6,5 +6,5 @@
     android:canRetrieveWindowContent="true"
     android:description="@string/jarvis_accessibility_description"
     android:notificationTimeout="100"
-    android:settingsActivity="">
+    >
 </accessibility-service>
