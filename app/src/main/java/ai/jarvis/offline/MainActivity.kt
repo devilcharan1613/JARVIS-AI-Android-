@@ -107,11 +107,23 @@ class MainActivity : ComponentActivity() {
                                 history = history, onSend = {
                                     if (prompt.isNotBlank() && modelPath.isNotBlank() && !busy) {
                                         val question = prompt.trim()
+                                        val previousTurns = history.takeLast(6)
+                                        val conversationPrompt = buildString {
+                                            if (memoryText.isNotBlank()) {
+                                                append("Relevant private user notes (use only when helpful):\\n")
+                                                append(memoryText.take(3000))
+                                                append("\\n\\n")
+                                            }
+                                            previousTurns.forEach { (userText, assistantText) ->
+                                                append("User: ").append(userText).append("\\nAssistant: ").append(assistantText).append("\\n")
+                                            }
+                                            append("User: ").append(question).append("\\nAssistant:")
+                                        }
                                         history = history + (question to "Thinking locally…")
                                         prompt = ""
                                         busy = true
                                         lifecycleScope.launch {
-                                            val result = runCatching { withContext(Dispatchers.IO) { NativeLlama.generate(question, 220) } }
+                                            val result = runCatching { withContext(Dispatchers.IO) { NativeLlama.generate(conversationPrompt, 220) } }
                                                 .getOrElse { "Local inference failed: ${it.message ?: "unknown error"}" }
                                             answer = result
                                             history = history.dropLast(1) + (question to result)
