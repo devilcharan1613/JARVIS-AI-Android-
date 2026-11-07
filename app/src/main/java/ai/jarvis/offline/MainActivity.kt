@@ -108,7 +108,7 @@ class MainActivity : ComponentActivity() {
                                     if (prompt.isNotBlank() && !busy) {
                                         val question = prompt.trim()
                                         prompt = ""
-                                        val localReply = LocalAgentRuntime.runLocalCommand(question, memory)
+                                        val localReply = LocalAgentRuntime.runLocalCommand(question, memory, this@MainActivity)
                                         if (localReply != null) {
                                             answer = localReply
                                             memoryText = memory.read()
@@ -141,7 +141,7 @@ class MainActivity : ComponentActivity() {
                                 onSave = { memory.write(memoryText); answer = "Private memory saved on this device." },
                                 onClear = { memory.clear(); memoryText = ""; answer = "Private memory cleared." }
                             )
-                            else -> SettingsScreen(modelPath.isNotBlank(), onImport = { picker.launch(arrayOf("application/octet-stream", "application/*")) })
+                            else -> SettingsScreen(modelPath.isNotBlank(), onImport = { picker.launch(arrayOf("application/octet-stream", "application/*")) }, onPhoneControl = { startActivity(android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)) })
                         }
                     }
                     BottomNav(tab = tab, onSelect = { tab = it })
@@ -313,7 +313,7 @@ private fun MemoryScreen(value: String, onValue: (String) -> Unit, onSave: () ->
 }
 
 @Composable
-private fun SettingsScreen(modelLoaded: Boolean, onImport: () -> Unit) {
+private fun SettingsScreen(modelLoaded: Boolean, onImport: () -> Unit, onPhoneControl: () -> Unit) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text("SYSTEM CONFIGURATION", color = Cyan, fontSize = 11.sp, letterSpacing = 1.7.sp)
         Text("JARVIS core settings", color = White, fontSize = 25.sp, fontWeight = FontWeight.Light)
@@ -323,9 +323,12 @@ private fun SettingsScreen(modelLoaded: Boolean, onImport: () -> Unit) {
         SettingRow("LANGUAGES", "English • తెలుగు • हिन्दी (depends on model)", "MODEL-BASED")
         SettingRow("VOICE CONTROL", "Speech recognition and speech output are not yet connected.", "NOT READY")
         SettingRow("WAKE WORD", "Background activation is not implemented.", "NOT READY")
-        SettingRow("OWNER VERIFICATION", "Device authentication integration is pending.", "NOT READY")
+        val accessibilityEnabled = JarvisPhoneAccessibilityService.isEnabled(androidx.compose.ui.platform.LocalContext.current)
+        SettingRow("PHONE CONTROL", if (accessibilityEnabled) "Accessibility service enabled. Use explicit commands in Chat." else "Requires your approval in Android Accessibility settings.", if (accessibilityEnabled) "ENABLED" else "PERMISSION")
+        OutlinedButton(onClick = onPhoneControl, modifier = Modifier.fillMaxWidth()) { Text("CONFIGURE PHONE CONTROL", color = Cyan) }
+        SettingRow("OWNER VERIFICATION", "Sensitive actions remain blocked; biometric confirmation is not yet integrated.", "PENDING")
         OutlinedButton(onClick = onImport, modifier = Modifier.fillMaxWidth()) { Text("IMPORT / REPLACE MODEL", color = Cyan) }
-        Text("Designed for fully local use. This build does not include a model, online search, cloud sync, device automation or always-listening microphone service.", color = Muted, fontSize = 11.sp, lineHeight = 17.sp)
+        Text("Phone control is optional and requires enabling Android Accessibility access. JARVIS can open apps, navigate, read visible labels, tap non-sensitive controls, type into focused non-password fields and scroll. Android restricts protected system settings.", color = Muted, fontSize = 11.sp, lineHeight = 17.sp)
     }
 }
 
