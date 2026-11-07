@@ -141,7 +141,15 @@ class MainActivity : ComponentActivity() {
                                     out.absolutePath
                                 }
                                 val loaded = withContext(Dispatchers.IO) { NativeLlama.loadModel(copied, 1024) }
-                                if (!loaded) error("Model load failed. The previous model remains active. Check model compatibility and available RAM.")
+                                if (!loaded) {
+                                    val restored = previousPath.isNotBlank() && File(previousPath).isFile &&
+                                        withContext(Dispatchers.IO) { NativeLlama.loadModel(previousPath, 1024) }
+                                    if (!restored) {
+                                        modelPath = ""
+                                        setupPrefs.edit().remove("active_model_path").apply()
+                                    }
+                                    error(if (restored) "New model failed to load. Your previous model has been restored." else "Model load failed and the previous model could not be restored. Import a compatible smaller GGUF model.")
+                                }
                                 copied
                             }
                             result.onSuccess { path ->
