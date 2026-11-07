@@ -342,6 +342,16 @@ private fun HomeScreen(modelName: String, busy: Boolean, answer: String, onImpor
 
 @Composable
 private fun ArcReactor() {
+    val transition = rememberInfiniteTransition(label = "reactor_rotation")
+    val rotation by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 9000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "rotation"
+    )
     Canvas(Modifier.size(174.dp)) {
         val c = Offset(size.width / 2, size.height / 2)
         val r = size.minDimension / 2
