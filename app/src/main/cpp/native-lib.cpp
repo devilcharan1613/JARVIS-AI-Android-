@@ -1,6 +1,7 @@
 #include <jni.h>
 #include <string>
 #include <vector>
+#include <algorithm>
 #include "llama.h"
 static llama_model * model = nullptr;
 static llama_context * ctx = nullptr;
@@ -22,8 +23,18 @@ extern "C" JNIEXPORT jstring JNICALL Java_ai_jarvis_offline_NativeLlama_generate
  const llama_vocab * vocab = llama_model_get_vocab(model);
  std::vector<llama_token> tokens(prompt.size() + 16);
  int n = llama_tokenize(vocab, prompt.c_str(), (int)prompt.size(), tokens.data(), (int)tokens.size(), true, true);
- if (n < 0) return env->NewStringUTF("Prompt is too long.");
- tokens.resize(n); llama_memory_clear(llama_get_memory(ctx), true);
+ // llama_tokenize returns the required capacity as a negative value when the
+ // caller's buffer is too small. Retry instead of rejecting valid long prompts.
+ if (n < 0) {
+  tokens.resize((size_t)(-n));
+  n = llama_tokenize(vocab, prompt.c_str(), (int)prompt.size(), tokens.data(), (int)tokens.size(), true, true);
+ }
+ if (n <= 0) return env->NewStringUTF("Could not tokenize prompt.");
+ tokens.resize((size_t)n);
+ const uint32_t contextLimit = llama_n_ctx(ctx);
+ if (tokens.size() + 1 >= contextLimit) return env->NewStringUTF("Prompt exceeds the model context window. Shorten the request.");
+ const int safeMaxTokens = std::max(1, std::min((int)maxTokens, (int)(contextLimit - tokens.size() - 1)));
+ llama_memory_clear(llama_get_memory(ctx), true);
  llama_batch batch = llama_batch_get_one(tokens.data(), (int)tokens.size());
  if (llama_decode(ctx, batch) != 0) return env->NewStringUTF("Prompt evaluation failed.");
  auto sp = llama_sampler_chain_default_params(); llama_sampler * sampler = llama_sampler_chain_init(sp);
@@ -31,7 +42,7 @@ extern "C" JNIEXPORT jstring JNICALL Java_ai_jarvis_offline_NativeLlama_generate
  llama_sampler_chain_add(sampler, llama_sampler_init_temp(0.8f));
  llama_sampler_chain_add(sampler, llama_sampler_init_dist(LLAMA_DEFAULT_SEED));
  std::string output;
- for (int i=0; i<maxTokens; ++i) {
+ for (int i=0; i<safeMaxTokens; ++i) {
   llama_token tok = llama_sampler_sample(sampler, ctx, -1);
   if (llama_vocab_is_eog(vocab, tok)) break;
   char piece[256]; int len = llama_token_to_piece(vocab, tok, piece, sizeof(piece), 0, true);
