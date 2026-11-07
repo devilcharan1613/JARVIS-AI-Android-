@@ -62,14 +62,25 @@ class MainActivity : ComponentActivity() {
                     busy = true
                     answer = "Copying model into private storage…"
                     lifecycleScope.launch {
-                        val copied = withContext(Dispatchers.IO) {
-                            val out = File(filesDir, "models/selected.gguf").apply { parentFile?.mkdirs() }
-                            contentResolver.openInputStream(it)?.use { input -> out.outputStream().use(input::copyTo) }
-                            out.absolutePath
+                        val result = runCatching {
+                            val copied = withContext(Dispatchers.IO) {
+                                val out = File(filesDir, "models/selected.gguf").apply { parentFile?.mkdirs() }
+                                val source = contentResolver.openInputStream(it)
+                                    ?: error("Android could not open the selected model file.")
+                                source.use { input -> out.outputStream().use { output -> input.copyTo(output) } }
+                                require(out.length() > 0L) { "The selected model file is empty." }
+                                out.absolutePath
+                            }
+                            val loaded = withContext(Dispatchers.IO) { NativeLlama.loadModel(copied, 1024) }
+                            if (!loaded) error("Model load failed. Check GGUF compatibility, available storage and RAM.")
+                            copied
                         }
-                        modelPath = copied
-                        val loaded = withContext(Dispatchers.IO) { NativeLlama.loadModel(copied, 1024) }
-                        answer = if (loaded) "Model loaded. Local inference is ready." else "Model load failed. Check GGUF compatibility, model size and available RAM."
+                        result.onSuccess { path ->
+                            modelPath = path
+                            answer = "Model loaded. Local inference is ready."
+                        }.onFailure { error ->
+                            answer = "Could not load model: ${error.message ?: "unknown error"}"
+                        }
                         busy = false
                     }
                 }
@@ -84,37 +95,39 @@ class MainActivity : ComponentActivity() {
             ) {
                 Column(Modifier.fillMaxSize().background(Ink)) {
                     TopBar()
-                    when (tab) {
-                        "HOME" -> HomeScreen(
-                            modelName = if (modelPath.isBlank()) "NO MODEL LOADED" else File(modelPath).name,
-                            busy = busy, answer = answer, onImport = { picker.launch(arrayOf("application/octet-stream", "application/*")) },
-                            onOpenChat = { tab = "CHAT" }, onOpenMemory = { tab = "MEMORY" }
-                        )
-                        "CHAT" -> ChatScreen(
-                            prompt = prompt, onPrompt = { prompt = it }, answer = answer, busy = busy,
-                            history = history, onSend = {
-                                if (prompt.isNotBlank() && modelPath.isNotBlank() && !busy) {
-                                    val question = prompt.trim()
-                                    history = history + (question to "Thinking locally…")
-                                    prompt = ""
-                                    busy = true
-                                    lifecycleScope.launch {
-                                        val result = withContext(Dispatchers.IO) { NativeLlama.generate(question, 220) }
-                                        answer = result
-                                        history = history.dropLast(1) + (question to result)
-                                        busy = false
-                                    }
-                                } else if (modelPath.isBlank()) answer = "Import a GGUF model first. No model is bundled."
-                            }
-                        )
-                        "MEMORY" -> MemoryScreen(
-                            value = memoryText, onValue = { memoryText = it },
-                            onSave = { memory.write(memoryText); answer = "Private memory saved on this device." },
-                            onClear = { memory.clear(); memoryText = ""; answer = "Private memory cleared." }
-                        )
-                        else -> SettingsScreen(modelPath.isNotBlank(), onImport = { picker.launch(arrayOf("application/octet-stream", "application/*")) })
+                    Box(Modifier.weight(1f).fillMaxWidth()) {
+                        when (tab) {
+                            "HOME" -> HomeScreen(
+                                modelName = if (modelPath.isBlank()) "NO MODEL LOADED" else File(modelPath).name,
+                                busy = busy, answer = answer, onImport = { picker.launch(arrayOf("application/octet-stream", "application/*")) },
+                                onOpenChat = { tab = "CHAT" }, onOpenMemory = { tab = "MEMORY" }
+                            )
+                            "CHAT" -> ChatScreen(
+                                prompt = prompt, onPrompt = { prompt = it }, answer = answer, busy = busy,
+                                history = history, onSend = {
+                                    if (prompt.isNotBlank() && modelPath.isNotBlank() && !busy) {
+                                        val question = prompt.trim()
+                                        history = history + (question to "Thinking locally…")
+                                        prompt = ""
+                                        busy = true
+                                        lifecycleScope.launch {
+                                            val result = runCatching { withContext(Dispatchers.IO) { NativeLlama.generate(question, 220) } }
+                                                .getOrElse { "Local inference failed: ${it.message ?: "unknown error"}" }
+                                            answer = result
+                                            history = history.dropLast(1) + (question to result)
+                                            busy = false
+                                        }
+                                    } else if (modelPath.isBlank()) answer = "Import a GGUF model first. No model is bundled."
+                                }
+                            )
+                            "MEMORY" -> MemoryScreen(
+                                value = memoryText, onValue = { memoryText = it },
+                                onSave = { memory.write(memoryText); answer = "Private memory saved on this device." },
+                                onClear = { memory.clear(); memoryText = ""; answer = "Private memory cleared." }
+                            )
+                            else -> SettingsScreen(modelPath.isNotBlank(), onImport = { picker.launch(arrayOf("application/octet-stream", "application/*")) })
+                        }
                     }
-                    Spacer(Modifier.weight(1f))
                     BottomNav(tab = tab, onSelect = { tab = it })
                 }
             }
