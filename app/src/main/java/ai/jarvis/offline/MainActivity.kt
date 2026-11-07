@@ -48,6 +48,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
+import android.os.StatFs
 
 private val Ink = Color(0xFF07121D)
 private val Panel = Color(0xFF0D2030)
@@ -77,30 +78,66 @@ class MainActivity : ComponentActivity() {
             var tab by remember { mutableStateOf("HOME") }
             var history by remember { mutableStateOf(listOf<Pair<String, String>>()) }
             val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
-                uri?.let {
-                    busy = true
-                    answer = "Copying model into private storage…"
-                    lifecycleScope.launch {
-                        val result = runCatching {
-                            val copied = withContext(Dispatchers.IO) {
-                                val out = File(filesDir, "models/selected.gguf").apply { parentFile?.mkdirs() }
-                                val source = contentResolver.openInputStream(it)
-                                    ?: error("Android could not open the selected model file.")
-                                source.use { input -> out.outputStream().use { output -> input.copyTo(output) } }
-                                require(out.length() > 0L) { "The selected model file is empty." }
-                                out.absolutePath
+                uri?.let { selectedUri ->
+                    if (!busy) {
+                        busy = true
+                        answer = "Checking storage and importing GGUF model…"
+                        lifecycleScope.launch {
+                            val previousPath = modelPath
+                            var stagedFile: File? = null
+                            val result = runCatching {
+                                val copied = withContext(Dispatchers.IO) {
+                                    val modelDir = File(filesDir, "models").apply { mkdirs() }
+                                    val available = StatFs(filesDir.absolutePath).availableBytes
+                                    val reserveBytes = 128L * 1024L * 1024L
+                                    require(available > reserveBytes) { "Not enough free storage. Keep at least 128 MB free for Android." }
+                                    val out = File(modelDir, "model-${System.currentTimeMillis()}.gguf")
+                                    stagedFile = out
+                                    val source = contentResolver.openInputStream(selectedUri)
+                                        ?: error("Android could not open the selected model file.")
+                                    var total = 0L
+                                    source.use { input ->
+                                        out.outputStream().buffered().use { output ->
+                                            val buffer = ByteArray(64 * 1024)
+                                            while (true) {
+                                                val count = input.read(buffer)
+                                                if (count < 0) break
+                                                total += count
+                                                require(total <= available - reserveBytes) {
+                                                    "Import stopped because there is not enough free storage."
+                                                }
+                                                output.write(buffer, 0, count)
+                                            }
+                                        }
+                                    }
+                                    require(total >= 4L) { "The selected file is empty or too small to be a GGUF model." }
+                                    val magic = ByteArray(4)
+                                    out.inputStream().use { input -> require(input.read(magic) == 4 && String(magic, Charsets.US_ASCII) == "GGUF") {
+                                        "This file does not have a valid GGUF header. Choose a .gguf model."
+                                    } }
+                                    out.absolutePath
+                                }
+                                val loaded = withContext(Dispatchers.IO) { NativeLlama.loadModel(copied, 1024) }
+                                if (!loaded) {
+                                    if (previousPath.isNotBlank() && File(previousPath).exists()) {
+                                        withContext(Dispatchers.IO) { NativeLlama.loadModel(previousPath, 1024) }
+                                    }
+                                    error("Model load failed. The previous model was restored when possible. Check model compatibility and available RAM.")
+                                }
+                                copied
                             }
-                            val loaded = withContext(Dispatchers.IO) { NativeLlama.loadModel(copied, 1024) }
-                            if (!loaded) error("Model load failed. Check GGUF compatibility, available storage and RAM.")
-                            copied
+                            result.onSuccess { path ->
+                                modelPath = path
+                                if (previousPath.isNotBlank() && previousPath != path) {
+                                    runCatching { File(previousPath).delete() }
+                                }
+                                answer = "GGUF model loaded. Local inference is ready."
+                            }.onFailure { error ->
+                                stagedFile?.let { runCatching { it.delete() } }
+                                answer = "Could not load model: ${error.message ?: "unknown error"}"
+                            }
+                            busy = false
                         }
-                        result.onSuccess { path ->
-                            modelPath = path
-                            answer = "Model loaded. Local inference is ready."
-                        }.onFailure { error ->
-                            answer = "Could not load model: ${error.message ?: "unknown error"}"
-                        }
-                        busy = false
                     }
                 }
             }
