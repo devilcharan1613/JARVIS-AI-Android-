@@ -105,31 +105,34 @@ class MainActivity : ComponentActivity() {
                             "CHAT" -> ChatScreen(
                                 prompt = prompt, onPrompt = { prompt = it }, answer = answer, busy = busy,
                                 history = history, onSend = {
-                                    if (prompt.isNotBlank() && modelPath.isNotBlank() && !busy) {
+                                    if (prompt.isNotBlank() && !busy) {
                                         val question = prompt.trim()
-                                        val previousTurns = history.takeLast(6)
-                                        val conversationPrompt = buildString {
-                                            if (memoryText.isNotBlank()) {
-                                                append("Relevant private user notes (use only when helpful):\\n")
-                                                append(memoryText.take(3000))
-                                                append("\\n\\n")
-                                            }
-                                            previousTurns.forEach { (userText, assistantText) ->
-                                                append("User: ").append(userText).append("\\nAssistant: ").append(assistantText).append("\\n")
-                                            }
-                                            append("User: ").append(question).append("\\nAssistant:")
-                                        }
-                                        history = history + (question to "Thinking locally…")
                                         prompt = ""
-                                        busy = true
-                                        lifecycleScope.launch {
-                                            val result = runCatching { withContext(Dispatchers.IO) { NativeLlama.generate(conversationPrompt, 220) } }
-                                                .getOrElse { "Local inference failed: ${it.message ?: "unknown error"}" }
-                                            answer = result
-                                            history = history.dropLast(1) + (question to result)
-                                            busy = false
+                                        val localReply = LocalAgentRuntime.runLocalCommand(question, memory)
+                                        if (localReply != null) {
+                                            answer = localReply
+                                            history = history + (question to localReply)
+                                            LocalAgentRuntime.trace(memory, question, localReply, 0L)
+                                        } else if (modelPath.isBlank()) {
+                                            answer = "Import a GGUF model first. Local date, time and memory commands work without a model."
+                                            history = history + (question to answer)
+                                        } else {
+                                            val conversationPrompt = LocalAgentRuntime.buildPrompt(question, history, memory)
+                                            history = history + (question to "Thinking locally…")
+                                            busy = true
+                                            lifecycleScope.launch {
+                                                val started = System.nanoTime()
+                                                val result = runCatching {
+                                                    withContext(Dispatchers.IO) { NativeLlama.generate(conversationPrompt, 220) }
+                                                }.getOrElse { "Local inference failed: ${it.message ?: "unknown error"}" }
+                                                val elapsed = (System.nanoTime() - started) / 1_000_000
+                                                answer = result
+                                                history = history.dropLast(1) + (question to result)
+                                                LocalAgentRuntime.trace(memory, question, result, elapsed)
+                                                busy = false
+                                            }
                                         }
-                                    } else if (modelPath.isBlank()) answer = "Import a GGUF model first. No model is bundled."
+                                    }
                                 }
                             )
                             "MEMORY" -> MemoryScreen(
@@ -300,7 +303,7 @@ private fun MemoryScreen(value: String, onValue: (String) -> Unit, onSave: () ->
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text("PERSONAL KNOWLEDGE VAULT", color = Cyan, fontSize = 11.sp, letterSpacing = 1.7.sp)
         Text("Your memory. Your device.", color = White, fontSize = 25.sp, fontWeight = FontWeight.Light)
-        Text("Save notes, preferences and reminders for your own reference. This screen stores notes locally; automatic retrieval into model prompts is not yet enabled.", color = Muted, fontSize = 12.sp, lineHeight = 18.sp)
+        Text("Save notes, preferences and reminders for your own reference. Notes are encrypted locally and relevant matching lines are retrieved into model prompts on this device.", color = Muted, fontSize = 12.sp, lineHeight = 18.sp)
         OutlinedTextField(value = value, onValueChange = onValue, modifier = Modifier.fillMaxWidth().weight(1f, fill = false), minLines = 10, placeholder = { Text("Write private notes…") }, shape = RoundedCornerShape(14.dp), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Cyan, unfocusedBorderColor = Color(0xFF29475A), focusedTextColor = White, unfocusedTextColor = White))
         Button(onClick = onSave, modifier = Modifier.fillMaxWidth(), colors = ButtonDefaults.buttonColors(containerColor = Cyan, contentColor = Ink)) { Text("SAVE TO THIS DEVICE") }
         OutlinedButton(onClick = onClear, modifier = Modifier.fillMaxWidth()) { Text("CLEAR LOCAL MEMORY", color = Color(0xFFFF9B9B)) }
