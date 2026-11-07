@@ -2,6 +2,10 @@ package ai.jarvis.offline
 
 import android.net.Uri
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -9,6 +13,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateColorAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
@@ -21,6 +26,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -156,8 +162,21 @@ class MainActivity : ComponentActivity() {
                 } else {
                 Column(Modifier.fillMaxSize().background(Ink)) {
                     TopBar()
-                    Box(Modifier.weight(1f).fillMaxWidth()) {
-                        when (tab) {
+                    AnimatedContent(
+                        targetState = tab,
+                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                        transitionSpec = {
+                            (fadeIn(tween(220)) + slideInVertically(
+                                animationSpec = tween(260, easing = FastOutSlowInEasing),
+                                initialOffsetY = { it / 18 }
+                            )) togetherWith (fadeOut(tween(140)) + slideOutVertically(
+                                animationSpec = tween(180),
+                                targetOffsetY = { -it / 24 }
+                            ))
+                        },
+                        label = "main_tab_transition"
+                    ) { destination ->
+                        when (destination) {
                             "HOME" -> HomeScreen(
                                 modelName = if (modelPath.isBlank()) "NO MODEL LOADED" else File(modelPath).name,
                                 busy = busy, answer = answer, onImport = { picker.launch(arrayOf("application/octet-stream", "application/*")) },
@@ -326,11 +345,11 @@ private fun TopBar() {
 
 @Composable
 private fun HomeScreen(modelName: String, busy: Boolean, answer: String, onImport: () -> Unit, onOpenChat: () -> Unit, onOpenMemory: () -> Unit) {
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 18.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    Column(Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF0A1B29), Ink, Ink))).verticalScroll(rememberScrollState()).padding(horizontal = 18.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Spacer(Modifier.height(4.dp))
         Text("PERSONAL AI SYSTEM  /  READY", color = Muted, fontSize = 10.sp, letterSpacing = 2.sp)
         Text("Your world.\nYour intelligence.", color = White, fontSize = 29.sp, lineHeight = 34.sp, fontWeight = FontWeight.Light)
-        Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(26.dp)).background(Brush.verticalGradient(listOf(Panel2, Panel))).border(1.dp, Cyan.copy(alpha = .28f), RoundedCornerShape(26.dp)).padding(20.dp)) {
+        Box(Modifier.fillMaxWidth().animateContentSize(tween(350, easing = FastOutSlowInEasing)).clip(RoundedCornerShape(26.dp)).background(Brush.verticalGradient(listOf(Color(0xFF15364B), Panel, Color(0xFF0A1A28)))).border(1.dp, Cyan.copy(alpha = .34f), RoundedCornerShape(26.dp)).padding(20.dp)) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                 ArcReactor()
                 Spacer(Modifier.height(10.dp))
@@ -395,8 +414,18 @@ private fun ArcReactor() {
         drawCircle(Cyan.copy(alpha = .5f), r * .76f, c, style = Stroke(1.dp.toPx()))
         drawCircle(Cyan.copy(alpha = .2f), r * .59f, c, style = Stroke(8.dp.toPx()))
         drawCircle(Cyan, r * .44f, c, style = Stroke(2.dp.toPx(), cap = StrokeCap.Round))
-        drawCircle(Cyan.copy(alpha = .12f), r * .31f, c)
-        drawCircle(White.copy(alpha = .8f), r * .12f, c)
+        val pulse by transition.animateFloat(
+            initialValue = .88f,
+            targetValue = 1.12f,
+            animationSpec = infiniteRepeatable(
+                animation = tween(durationMillis = 1250, easing = FastOutSlowInEasing),
+                repeatMode = RepeatMode.Reverse
+            ),
+            label = "core_pulse"
+        )
+        drawCircle(Cyan.copy(alpha = .10f), r * .34f * pulse, c)
+        drawCircle(Cyan.copy(alpha = .22f), r * .25f * pulse, c, style = Stroke(2.dp.toPx()))
+        drawCircle(White.copy(alpha = .92f), r * .12f * pulse, c)
         for (i in 0 until 8) {
             val a = Math.toRadians(i * 45.0 + rotation)
             val start = Offset(c.x + kotlin.math.cos(a).toFloat() * r * .8f, c.y + kotlin.math.sin(a).toFloat() * r * .8f)
@@ -451,7 +480,21 @@ private fun ChatScreen(prompt: String, onPrompt: (String) -> Unit, answer: Strin
         }
         OutlinedTextField(value = prompt, onValueChange = onPrompt, modifier = Modifier.fillMaxWidth(), placeholder = { Text("Enter a command or question…", color = Muted) }, minLines = 2, shape = RoundedCornerShape(14.dp), colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Cyan, unfocusedBorderColor = Color(0xFF29475A), focusedTextColor = White, unfocusedTextColor = White))
         Spacer(Modifier.height(8.dp))
-        Button(onClick = onSend, enabled = !busy, modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = Cyan, contentColor = Ink)) {
+        AnimatedVisibility(visible = busy, enter = fadeIn(tween(180)) + expandVertically(), exit = fadeOut(tween(120))) {
+            Column(
+                Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Panel).padding(13.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(Modifier.size(17.dp), color = Cyan, strokeWidth = 2.dp)
+                    Spacer(Modifier.width(10.dp))
+                    Text("JARVIS IS THINKING ON THIS DEVICE", color = Cyan, fontSize = 10.sp, letterSpacing = 1.sp, fontWeight = FontWeight.Bold)
+                }
+                LinearProgressIndicator(Modifier.fillMaxWidth(), color = Cyan, trackColor = Panel2)
+                Text("Local model inference can take time on phones with limited RAM.", color = Muted, fontSize = 10.sp)
+            }
+        }
+        Button(onClick = onSend, enabled = !busy, modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(14.dp), colors = ButtonDefaults.buttonColors(containerColor = Cyan, contentColor = Ink)) {
             Text(if (busy) "PROCESSING LOCALLY…" else "RUN LOCAL INFERENCE", fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
         }
     }
