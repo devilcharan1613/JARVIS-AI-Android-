@@ -1,0 +1,3 @@
+<resources>
+    <string name="jarvis_accessibility_description">Allows JARVIS to read visible app labels and perform user-requested taps, text entry, scrolling and navigation. Enable only if you trust this assistant. Sensitive fields are blocked.</string>
+</resources>
