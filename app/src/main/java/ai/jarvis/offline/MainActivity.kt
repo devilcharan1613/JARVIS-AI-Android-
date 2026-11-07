@@ -525,12 +525,12 @@ private fun SettingsScreen(modelLoaded: Boolean, onImport: () -> Unit, onPhoneCo
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text("SYSTEM CONFIGURATION", color = Cyan, fontSize = 11.sp, letterSpacing = 1.7.sp)
         Text("JARVIS core settings", color = White, fontSize = 25.sp, fontWeight = FontWeight.Light)
-        SettingRow("NETWORK ACCESS", "Disabled by manifest. No internet permission.", "SECURE")
+        SettingRow("NETWORK ACCESS", "Local AI stays offline. Requests for fresh information open Google Search in your browser.", "ON REQUEST")
         SettingRow("INFERENCE ENGINE", "llama.cpp native runtime", "LOCAL")
         SettingRow("MODEL", if (modelLoaded) "A model has been selected in this session." else "No model currently loaded.", if (modelLoaded) "LOADED" else "MISSING")
         SettingRow("LANGUAGES", "English • తెలుగు • हिन्दी (depends on model)", "MODEL-BASED")
-        SettingRow("VOICE CONTROL", "Speech recognition and speech output are not yet connected.", "NOT READY")
-        SettingRow("WAKE WORD", "Background activation is not implemented.", "NOT READY")
+        SettingRow("VOICE CONTROL", "Voice input and wake-word activation are not yet connected in this build.", "IN DEVELOPMENT")
+        SettingRow("WAKE WORD", "Always-listening activation requires a separate, battery-aware microphone service and local wake-word model.", "NOT READY")
         val accessibilityEnabled = JarvisPhoneAccessibilityService.isEnabled(androidx.compose.ui.platform.LocalContext.current)
         SettingRow("PHONE CONTROL", if (accessibilityEnabled) "Accessibility service enabled. Use explicit commands in Chat." else "Requires your approval in Android Accessibility settings.", if (accessibilityEnabled) "ENABLED" else "PERMISSION")
         OutlinedButton(onClick = onPhoneControl, modifier = Modifier.fillMaxWidth()) { Text("CONFIGURE PHONE CONTROL", color = Cyan) }
