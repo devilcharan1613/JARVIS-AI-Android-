@@ -111,6 +111,7 @@ class MainActivity : ComponentActivity() {
                                         val localReply = LocalAgentRuntime.runLocalCommand(question, memory)
                                         if (localReply != null) {
                                             answer = localReply
+                                            memoryText = memory.read()
                                             history = history + (question to localReply)
                                             LocalAgentRuntime.trace(memory, question, localReply, 0L)
                                         } else if (modelPath.isBlank()) {
